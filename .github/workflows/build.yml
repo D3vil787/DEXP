@@ -20,8 +20,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Signing key from secrets
+        env:
+          KS_B64: ${{ secrets.DEXP_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::error::Secrets DEXP_KEYSTORE_B64 / DEXP_KEYSTORE_PASSWORD are not set. Without them every build gets a random key and cannot be installed over the previous one."
+            exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/dexp.keystore"
+          echo "DEXP_KEYSTORE_FILE=$RUNNER_TEMP/dexp.keystore" >> "$GITHUB_ENV"
+
       - name: Build
         working-directory: launcher
+        env:
+          DEXP_KEYSTORE_PASSWORD: ${{ secrets.DEXP_KEYSTORE_PASSWORD }}
         run: ./gradlew assembleDebug --no-daemon --console=plain
 
       - name: Upload artifact

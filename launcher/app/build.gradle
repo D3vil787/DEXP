@@ -15,11 +15,29 @@ android {
         versionName '1.1'
     }
 
+    // One permanent key, so every new build installs over the previous one.
+    // CI passes it via repository secrets; local builds fall back to the debug key.
+    def ksFile = System.getenv('DEXP_KEYSTORE_FILE')
+    signingConfigs {
+        stable {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv('DEXP_KEYSTORE_PASSWORD')
+                keyAlias 'dexp'
+                keyPassword System.getenv('DEXP_KEYSTORE_PASSWORD')
+                v1SigningEnabled true   // Android 4.2 only understands v1 (JAR) signatures
+                v2SigningEnabled true
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (ksFile) signingConfig signingConfigs.stable
+        }
         release {
             minifyEnabled false
-            // Signed with the debug key so the APK installs without extra setup.
-            signingConfig signingConfigs.debug
+            signingConfig ksFile ? signingConfigs.stable : signingConfigs.debug
         }
     }
 
