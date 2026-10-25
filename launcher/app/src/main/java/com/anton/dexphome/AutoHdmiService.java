@@ -1,6 +1,8 @@
 package com.anton.dexphome;
 
 import android.app.ActivityManager;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -10,12 +12,18 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * After power-on (boot or wake from standby) waits until the stock Konka launcher is on screen
- * (it starts the TV middleware, so HDMI then has sound) and opens HDMI full screen, so there is
- * no need to press OK on the small preview window every time.
+ * After power-on (boot or wake from standby) waits until the stock Konka launcher has stayed
+ * on screen for a while (it starts the TV middleware and audio meanwhile) and then opens HDMI
+ * full screen, so there is no need to press OK on the small preview window every time.
+ *
+ * Runs in the foreground and remembers an unfinished wait in prefs: right after boot the TV is
+ * short on memory and may kill the process; a restarted service picks the wait up again.
  */
 public class AutoHdmiService extends Service {
 
@@ -23,6 +31,9 @@ public class AutoHdmiService extends Service {
     static final String KEY_ENABLED = "auto_hdmi";
     static final String KEY_PORT = "hdmi_port";
     static final String KEY_DELAY = "hdmi_delay_s";
+    static final String KEY_STATUS = "auto_status";
+    /** elapsedRealtime() until which a power-on wait is still in progress. */
+    static final String KEY_PENDING_UNTIL = "auto_pending_until";
     static final int[] DELAYS = {5, 10, 15, 20, 30};
     static final int DEFAULT_DELAY = 10;
     static final String ACTION_POWER_ON = "com.anton.dexphome.POWER_ON";
@@ -30,23 +41,21 @@ public class AutoHdmiService extends Service {
     private static final String STOCK_LAUNCHER = "com.konka.avenger";
     private static final long WAIT_LIMIT_MS = 120000;
     private static final long POLL_MS = 1000;
-
-
-    /** Last action, shown on the diagnostics screen. */
-    static volatile String status = "не запускался";
+    private static final int NOTIFICATION_ID = 1;
 
     private final Handler handler = new Handler();
-    private long deadline;
     private boolean waiting;
-    /** When the stock launcher was first seen on top in this wait; 0 = not yet. */
+    /** When the stock launcher was first seen on screen in this wait; 0 = not yet. */
     private long launcherSince;
 
     private final BroadcastReceiver screenOn = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
-            begin("пробуждение");
+            begin("пробуждение", false);
         }
     };
+
+    // ---- settings ----
 
     static boolean isEnabled(Context c) {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ENABLED, false);
@@ -56,7 +65,7 @@ public class AutoHdmiService extends Service {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getInt(KEY_PORT, 1);
     }
 
-    /** Seconds the stock launcher must stay on screen before HDMI opens (it finishes audio setup meanwhile). */
+    /** Seconds the stock launcher must stay on screen before HDMI opens. */
     static int delay(Context c) {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getInt(KEY_DELAY, DEFAULT_DELAY);
     }
@@ -73,16 +82,55 @@ public class AutoHdmiService extends Service {
         return next;
     }
 
+    /** Last action with its time, shown on the diagnostics screen; survives process restarts. */
+    static String status(Context c) {
+        return c.getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATUS, "ещё не срабатывал");
+    }
+
     static void sync(Context c) {
         Intent svc = new Intent(c, AutoHdmiService.class);
         if (isEnabled(c)) c.startService(svc);
         else c.stopService(svc);
     }
 
+    private void setStatus(String s) {
+        String t = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATUS, t + " " + s).apply();
+    }
+
+    private void setPendingUntil(long elapsed) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong(KEY_PENDING_UNTIL, elapsed).apply();
+    }
+
+    private long pendingUntil() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getLong(KEY_PENDING_UNTIL, 0);
+    }
+
+    // ---- lifecycle ----
+
     @Override
     public void onCreate() {
         super.onCreate();
         registerReceiver(screenOn, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        goForeground();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void goForeground() {
+        try {
+            PendingIntent open = PendingIntent.getActivity(this, 0,
+                    new Intent(this, MainActivity.class), 0);
+            Notification n = new Notification.Builder(this)
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setContentTitle("Помощник ТВ")
+                    .setContentText("Автозапуск HDMI включён")
+                    .setContentIntent(open)
+                    .setOngoing(true)
+                    .getNotification();
+            startForeground(NOTIFICATION_ID, n);
+        } catch (Exception ignored) {
+            // Not critical: the pending marker still lets a restarted service resume.
+        }
     }
 
     @Override
@@ -91,8 +139,12 @@ public class AutoHdmiService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && ACTION_POWER_ON.equals(intent.getAction())) begin("включение");
-        else if (status.equals("не запускался")) status = "ждёт включения телевизора";
+        if (intent != null && ACTION_POWER_ON.equals(intent.getAction())) {
+            begin("включение", false);
+        } else if (!waiting && pendingUntil() > SystemClock.elapsedRealtime()) {
+            // The process was killed while waiting after power-on: carry on.
+            begin("продолжение после перезапуска помощника", true);
+        }
         return START_STICKY;
     }
 
@@ -103,6 +155,7 @@ public class AutoHdmiService extends Service {
             unregisterReceiver(screenOn);
         } catch (Exception ignored) {
         }
+        stopForeground(true);
         super.onDestroy();
     }
 
@@ -111,14 +164,25 @@ public class AutoHdmiService extends Service {
         return null;
     }
 
-    private void begin(String why) {
+    // ---- the wait ----
+
+    private void begin(String why, boolean resume) {
         if (!isEnabled(this)) return;
         handler.removeCallbacksAndMessages(null);
-        deadline = SystemClock.uptimeMillis() + WAIT_LIMIT_MS;
+        // A fresh power-on gets a fresh time limit; a resumed wait keeps the original one.
+        if (!resume || pendingUntil() <= SystemClock.elapsedRealtime()) {
+            setPendingUntil(SystemClock.elapsedRealtime() + WAIT_LIMIT_MS);
+        }
         waiting = true;
         launcherSince = 0;
-        status = why + ": жду штатный экран";
+        setStatus(why + ": жду штатный экран");
         handler.post(poll);
+    }
+
+    private void done(String result) {
+        waiting = false;
+        setPendingUntil(0);
+        setStatus(result);
     }
 
     private final Runnable poll = new Runnable() {
@@ -127,30 +191,24 @@ public class AutoHdmiService extends Service {
             if (!waiting) return;
             String top = topActivity();
             if (isFullScreenTv(top)) {
-                waiting = false;
-                status = "полноэкранный TV-режим уже открыт, ничего не делаю";
+                done("полноэкранный TV-режим уже открыт, ничего не делаю");
                 return;
             }
             if (isLauncherScreen(top)) {
                 long now = SystemClock.uptimeMillis();
                 if (launcherSince == 0) launcherSince = now;
-                long need = delay(AutoHdmiService.this) * 1000L;
-                if (now - launcherSince >= need) {
+                if (now - launcherSince >= delay(AutoHdmiService.this) * 1000L) {
                     waiting = false;
-                    status = "штатный экран простоял " + delay(AutoHdmiService.this) + " с, открываю HDMI "
-                            + port(AutoHdmiService.this);
                     handler.post(open);
                     return;
                 }
-                status = "штатный экран на месте, жду " + ((need - (now - launcherSince)) / 1000 + 1) + " с";
                 handler.postDelayed(this, POLL_MS);
                 return;
             }
-            // Something else is on top: restart the stock-launcher timer once it comes back.
+            // Something else is on screen: restart the launcher timer when it comes back.
             launcherSince = 0;
-            if (SystemClock.uptimeMillis() > deadline) {
-                waiting = false;
-                status = "штатный экран не продержался нужное время за 120 с (сверху: " + top + ")";
+            if (SystemClock.elapsedRealtime() > pendingUntil()) {
+                done("штатный экран не продержался нужное время за 120 с (сверху: " + top + ")");
                 return;
             }
             handler.postDelayed(this, POLL_MS);
@@ -160,16 +218,16 @@ public class AutoHdmiService extends Service {
     private final Runnable open = new Runnable() {
         @Override
         public void run() {
-            // The user may have started something else in the meantime: only act over the launcher.
             String top = topActivity();
-            if (isLauncherScreen(top)) {
-                if (Apps.startQuiet(AutoHdmiService.this, Tv.switchToHdmi(port(AutoHdmiService.this)))) {
-                    status = "HDMI " + port(AutoHdmiService.this) + " открыт";
-                } else {
-                    status = "не удалось открыть TV-приложение";
-                }
+            if (!isLauncherScreen(top)) {
+                done("пропущено: на экране уже " + top);
+                return;
+            }
+            int p = port(AutoHdmiService.this);
+            if (Apps.startQuiet(AutoHdmiService.this, Tv.switchToHdmi(p))) {
+                done("штатный экран простоял " + delay(AutoHdmiService.this) + " с, HDMI " + p + " открыт");
             } else {
-                status = "пропущено: на экране уже " + top;
+                done("не удалось открыть TV-приложение");
             }
         }
     };
@@ -181,7 +239,7 @@ public class AutoHdmiService extends Service {
 
     /**
      * The stock home screen, possibly with a TV-app popup over it (e.g. the source info banner
-     * the TV app shows over the launcher after power-on): treat both as "launcher on screen".
+     * shown after power-on): both count as "launcher on screen".
      */
     private static boolean isLauncherScreen(String topActivity) {
         if (topActivity == null) return false;
