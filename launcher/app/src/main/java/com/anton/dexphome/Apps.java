@@ -89,4 +89,34 @@ final class Apps {
             Toast.makeText(c, "Нет доступа", Toast.LENGTH_SHORT).show();
         }
     }
+
+    /** Tries each intent in turn; stops at the first one the system accepts. */
+    static boolean startFirst(Context c, Intent[] candidates) {
+        for (Intent i : candidates) {
+            try {
+                c.startActivity(new Intent(i).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return true;
+            } catch (ActivityNotFoundException ignored) {
+            } catch (SecurityException ignored) {
+            }
+        }
+        Toast.makeText(c, "Не удалось открыть", Toast.LENGTH_SHORT).show();
+        return false;
+    }
+
+    static final String SETTINGS_PKG = "com.android.settings";
+
+    static Intent settingsComponent(String cls) {
+        return new Intent(Intent.ACTION_MAIN).setClassName(SETTINGS_PKG, SETTINGS_PKG + cls);
+    }
+
+    /**
+     * Opens a stock settings page by fragment name through the main Settings screen.
+     * Works on Android 4.2 even when the firmware hides the page (the check was added in 4.4).
+     */
+    static Intent settingsFragment(String fragmentClass) {
+        return settingsComponent(".Settings")
+                .putExtra(":android:show_fragment", fragmentClass)
+                .putExtra(":android:no_headers", true);
+    }
 }

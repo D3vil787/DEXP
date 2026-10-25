@@ -58,11 +58,26 @@ public class AllAppsActivity extends Activity {
         View first = null;
 
         // Stock Android settings that the DEXP menu hides.
+        // Each entry lists fallbacks, tried in order.
         Object[][] extras = {
-                {"Настройки Android", new Intent(Settings.ACTION_SETTINGS)},
-                {"Для разработчиков", new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)},
-                {"Об устройстве", new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)},
-                {"Управление приложениями", new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS)},
+                {"Настройки Android", new Intent[]{
+                        new Intent(Settings.ACTION_SETTINGS),
+                        Apps.settingsComponent(".Settings")}},
+                {"Для разработчиков", new Intent[]{
+                        new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS),
+                        Apps.settingsComponent(".Settings$DevelopmentSettingsActivity"),
+                        Apps.settingsComponent(".DevelopmentSettings"),
+                        Apps.settingsFragment("com.android.settings.DevelopmentSettings")}},
+                {"Об устройстве", new Intent[]{
+                        new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS),
+                        Apps.settingsComponent(".Settings$DeviceInfoSettingsActivity"),
+                        Apps.settingsFragment("com.android.settings.DeviceInfoSettings")}},
+                {"Управление приложениями", new Intent[]{
+                        new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS),
+                        new Intent(Settings.ACTION_APPLICATION_SETTINGS),
+                        Apps.settingsFragment("com.android.settings.applications.ManageApplications")}},
+                {"Все разделы настроек", new Intent[]{
+                        new Intent(this, SettingsListActivity.class)}},
         };
 
         List<Apps.Entry> apps = Apps.launchables(this);
@@ -76,17 +91,17 @@ public class AllAppsActivity extends Activity {
             }
             final String label;
             final Drawable icon;
-            final Intent intent;
+            final Intent[] intent;
             if (i < apps.size()) {
                 Apps.Entry e = apps.get(i);
                 label = e.label;
                 icon = e.icon;
-                intent = e.intent;
+                intent = new Intent[]{e.intent};
             } else {
                 Object[] x = extras[i - apps.size()];
                 label = (String) x[0];
                 icon = gear;
-                intent = (Intent) x[1];
+                intent = (Intent[]) x[1];
             }
             View cell = cell(label, icon, intent);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.px(260), Ui.px(220));
@@ -100,7 +115,7 @@ public class AllAppsActivity extends Activity {
         if (first != null) first.requestFocus();
     }
 
-    private View cell(String label, Drawable icon, final Intent intent) {
+    private View cell(String label, Drawable icon, final Intent[] intent) {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setGravity(Gravity.CENTER);
@@ -126,7 +141,7 @@ public class AllAppsActivity extends Activity {
         c.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Apps.start(AllAppsActivity.this, new Intent(intent));
+                Apps.startFirst(AllAppsActivity.this, intent);
             }
         });
         return c;
