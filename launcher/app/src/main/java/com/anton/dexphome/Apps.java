@@ -115,6 +115,28 @@ final class Apps {
         return false;
     }
 
+    /** Opens the TV's own launcher (any other HOME activity), bypassing the default choice. */
+    static void openStockHome(Context c) {
+        PackageManager pm = c.getPackageManager();
+        Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        for (ResolveInfo ri : pm.queryIntentActivities(home, 0)) {
+            String pkg = ri.activityInfo.packageName;
+            if (pkg.equals(c.getPackageName()) || pkg.equals("android")) continue;
+            if (startQuiet(c, new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    .setClassName(pkg, ri.activityInfo.name))) {
+                return;
+            }
+        }
+        Toast.makeText(c, "Штатный экран не найден", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Drops the "Always" choice for this launcher; the next Home press asks again. */
+    static void resetHomeChoice(Context c) {
+        c.getPackageManager().clearPackagePreferredActivities(c.getPackageName());
+        Toast.makeText(c, "Выбор главного экрана сброшен. Нажмите Home, чтобы выбрать заново.",
+                Toast.LENGTH_LONG).show();
+    }
+
     static final String SETTINGS_PKG = "com.android.settings";
 
     static Intent settingsComponent(String cls) {

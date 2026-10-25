@@ -70,6 +70,12 @@ public class UninstallActivity extends Activity {
 
         PackageManager pm = getPackageManager();
         List<Apps.Entry> apps = Apps.launchables(this);
+        // This launcher itself goes first, so it can always be removed.
+        Apps.Entry self = new Apps.Entry();
+        self.pkg = getPackageName();
+        self.label = "Этот главный экран (Home)";
+        self.icon = getApplicationInfo().loadIcon(pm);
+        apps.add(0, self);
         View toFocus = null;
         int i = 0;
         for (final Apps.Entry e : apps) {

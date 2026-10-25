@@ -57,25 +57,13 @@ public class AllAppsActivity extends Activity {
         int count = 0;
         View first = null;
 
-        // Stock Android settings that the DEXP menu hides.
-        // Each entry lists fallbacks, tried in order.
+        // Service entries. Each lists fallbacks, tried in order.
+        // (This firmware has no stock com.android.settings, so those shortcuts are gone.)
         Object[][] extras = {
-                {"Настройки Android", new Intent[]{
-                        new Intent(Settings.ACTION_SETTINGS),
-                        Apps.settingsComponent(".Settings")}},
-                {"Для разработчиков", new Intent[]{
-                        new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS),
-                        Apps.settingsComponent(".Settings$DevelopmentSettingsActivity"),
-                        Apps.settingsComponent(".DevelopmentSettings"),
-                        Apps.settingsFragment("com.android.settings.DevelopmentSettings")}},
-                {"Об устройстве", new Intent[]{
-                        new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS),
-                        Apps.settingsComponent(".Settings$DeviceInfoSettingsActivity"),
-                        Apps.settingsFragment("com.android.settings.DeviceInfoSettings")}},
-                {"Управление приложениями", new Intent[]{
-                        new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS),
-                        new Intent(Settings.ACTION_APPLICATION_SETTINGS),
-                        Apps.settingsFragment("com.android.settings.applications.ManageApplications")}},
+                {"Штатный экран DEXP", new Intent[]{
+                        RescueActivity.intent(this, RescueActivity.ACTION_STOCK_HOME)}},
+                {"Сбросить выбор главного экрана", new Intent[]{
+                        RescueActivity.intent(this, RescueActivity.ACTION_RESET_HOME)}},
                 {"Удаление приложений", new Intent[]{
                         new Intent(this, UninstallActivity.class)}},
                 {"Диагностика", new Intent[]{

@@ -75,7 +75,16 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        build(); // re-resolve apps every time: something may have been installed meanwhile
+        try {
+            build(); // re-resolve apps every time: something may have been installed meanwhile
+        } catch (Throwable t) {
+            // Never leave the TV stuck on a broken home screen: show the emergency exits instead.
+            root.removeAllViews();
+            focusables.clear();
+            root.addView(RescueActivity.panel(this, t), new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            return;
+        }
         handler.removeCallbacks(tick);
         handler.post(tick);
     }
