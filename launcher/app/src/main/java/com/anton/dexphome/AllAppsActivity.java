@@ -64,6 +64,8 @@ public class AllAppsActivity extends Activity {
                         RescueActivity.intent(this, RescueActivity.ACTION_STOCK_HOME)}},
                 {"Сбросить выбор главного экрана", new Intent[]{
                         RescueActivity.intent(this, RescueActivity.ACTION_RESET_HOME)}},
+                {"Сертификат Let's Encrypt", new Intent[]{
+                        new Intent(this, CertActivity.class)}},
                 {"Удаление приложений", new Intent[]{
                         new Intent(this, UninstallActivity.class)}},
                 {"Диагностика", new Intent[]{
