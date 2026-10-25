@@ -8,6 +8,7 @@
     <!-- Auto-HDMI helper: start after boot, see which app is on screen. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.GET_TASKS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.mstar.permission.RW_TV_DATA" />
     <uses-permission android:name="com.mstar.android.permissionn.ACCESS_TV_DATA" />
 
@@ -69,6 +70,10 @@
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+                <action android:name="com.mstar.tv.service.POWER" />
             </intent-filter>
         </receiver>
     </application>

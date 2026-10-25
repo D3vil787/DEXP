@@ -37,6 +37,9 @@ public class AutoHdmiService extends Service {
     static final int[] DELAYS = {5, 10, 15, 20, 30};
     static final int DEFAULT_DELAY = 10;
     static final String ACTION_POWER_ON = "com.anton.dexphome.POWER_ON";
+    static final String EXTRA_REASON = "reason";
+    /** How often the service checks for a wake from standby on its own. */
+    private static final long WATCH_MS = 5000;
 
     private static final String STOCK_LAUNCHER = "com.konka.avenger";
     private static final long WAIT_LIMIT_MS = 120000;
@@ -48,12 +51,32 @@ public class AutoHdmiService extends Service {
     /** When the stock launcher was first seen on screen in this wait; 0 = not yet. */
     private long launcherSince;
 
-    private final BroadcastReceiver screenOn = new BroadcastReceiver() {
+    private final BroadcastReceiver screen = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
-            begin("пробуждение", false);
+            if (Intent.ACTION_SCREEN_OFF.equals(i.getAction())) {
+                Events.log(c, "экран выключен");
+                return;
+            }
+            Events.log(c, "экран включён");
+            String reason = Events.checkPowerOn(c);
+            begin(reason != null ? reason : "экран включён", false);
         }
     };
+
+    /** Catches a wake from standby even if the firmware sends no SCREEN_ON. */
+    private final Runnable watch = new Runnable() {
+        @Override
+        public void run() {
+            String reason = Events.checkPowerOn(AutoHdmiService.this);
+            if (reason != null) {
+                Events.log(AutoHdmiService.this, "замечено: " + reason);
+                begin(reason, false);
+            }
+            watchHandler.postDelayed(this, WATCH_MS);
+        }
+    };
+    private final Handler watchHandler = new Handler();
 
     // ---- settings ----
 
@@ -96,6 +119,7 @@ public class AutoHdmiService extends Service {
     private void setStatus(String s) {
         String t = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATUS, t + " " + s).apply();
+        Events.log(this, s);
     }
 
     private void setPendingUntil(long elapsed) {
@@ -111,8 +135,12 @@ public class AutoHdmiService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        registerReceiver(screenOn, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
+        f.addAction(Intent.ACTION_SCREEN_OFF);
+        registerReceiver(screen, f);
         goForeground();
+        Events.log(this, "помощник запущен");
+        watchHandler.postDelayed(watch, WATCH_MS);
     }
 
     @SuppressWarnings("deprecation")
@@ -139,8 +167,10 @@ public class AutoHdmiService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (intent != null && ACTION_POWER_ON.equals(intent.getAction())) {
-            begin("включение", false);
+        String reason = intent != null && ACTION_POWER_ON.equals(intent.getAction())
+                ? intent.getStringExtra(EXTRA_REASON) : Events.checkPowerOn(this);
+        if (reason != null) {
+            begin(reason, false);
         } else if (!waiting && pendingUntil() > SystemClock.elapsedRealtime()) {
             // The process was killed while waiting after power-on: carry on.
             begin("продолжение после перезапуска помощника", true);
@@ -151,10 +181,12 @@ public class AutoHdmiService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        watchHandler.removeCallbacksAndMessages(null);
         try {
-            unregisterReceiver(screenOn);
+            unregisterReceiver(screen);
         } catch (Exception ignored) {
         }
+        Events.log(this, "помощник остановлен");
         stopForeground(true);
         super.onDestroy();
     }

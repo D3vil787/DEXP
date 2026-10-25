@@ -59,6 +59,7 @@ public class SettingsListActivity extends Activity {
         info("Автозапуск HDMI: " + (AutoHdmiService.isEnabled(this) ? "вкл" : "выкл")
                 + ", порт HDMI " + AutoHdmiService.port(this) + ", задержка " + AutoHdmiService.delay(this)
                 + " с — " + AutoHdmiService.status(this));
+        info("Журнал помощника (новое сверху):\n" + Events.read(this));
         info("ro.debuggable=" + prop("ro.debuggable") + "   ro.secure=" + prop("ro.secure")
                 + "   ro.adb.secure=" + prop("ro.adb.secure"));
 
