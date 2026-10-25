@@ -62,7 +62,7 @@ public class UninstallActivity extends Activity {
         list.addView(title);
 
         TextView hint = new TextView(this);
-        hint.setText("«системное» — встроено в прошивку, удалить нельзя. Остальное удаляется полностью.");
+        hint.setText("«системное» — встроено в прошивку, удалить нельзя. «откатить обновление» — вернётся заводская версия. «удалить» — удаляется полностью.");
         hint.setTextColor(0xB3FFFFFF);
         Ui.textSize(hint, 22);
         hint.setPadding(0, Ui.px(8), 0, Ui.px(24));
@@ -73,14 +73,14 @@ public class UninstallActivity extends Activity {
         View toFocus = null;
         int i = 0;
         for (final Apps.Entry e : apps) {
-            boolean system = false;
+            boolean system = false, updated = false;
             try {
                 ApplicationInfo ai = pm.getApplicationInfo(e.pkg, 0);
-                system = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0
-                        && (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0;
+                updated = (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
+                system = (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0 && !updated;
             } catch (PackageManager.NameNotFoundException ignored) {
             }
-            View row = row(e, system);
+            View row = row(e, system, updated);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, Ui.px(84));
             lp.setMargins(0, Ui.px(6), 0, Ui.px(6));
@@ -99,7 +99,7 @@ public class UninstallActivity extends Activity {
         }
     }
 
-    private View row(final Apps.Entry e, final boolean system) {
+    private View row(final Apps.Entry e, final boolean system, final boolean updated) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
@@ -119,8 +119,9 @@ public class UninstallActivity extends Activity {
         r.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView tag = new TextView(this);
-        tag.setText(system ? "системное" : "удалить");
-        tag.setTextColor(system ? 0x80FFFFFF : 0xFFFF8A80);
+        // An updated firmware app can only be rolled back to its factory version, not removed.
+        tag.setText(system ? "системное" : updated ? "откатить обновление" : "удалить");
+        tag.setTextColor(system ? 0x80FFFFFF : updated ? 0xFFFFD180 : 0xFFFF8A80);
         Ui.textSize(tag, 22);
         r.addView(tag);
 
