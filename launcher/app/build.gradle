@@ -11,8 +11,8 @@ android {
         // The DEXP F49B8000K runs Android 4.2.1 (API 17).
         minSdk 17
         targetSdk 34
-        versionCode 7
-        versionName '1.6'
+        versionCode 8
+        versionName '1.7'
     }
 
     // One permanent key, so every new build installs over the previous one.

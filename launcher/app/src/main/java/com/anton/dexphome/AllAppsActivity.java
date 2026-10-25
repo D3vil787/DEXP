@@ -68,6 +68,8 @@ public class AllAppsActivity extends Activity {
                         new Intent(this, CertActivity.class)}},
                 {"Удаление приложений", new Intent[]{
                         new Intent(this, UninstallActivity.class)}},
+                {"Экспорт APK на флешку", new Intent[]{
+                        new Intent(this, ExportActivity.class)}},
                 {"Диагностика", new Intent[]{
                         new Intent(this, SettingsListActivity.class)}},
         };
