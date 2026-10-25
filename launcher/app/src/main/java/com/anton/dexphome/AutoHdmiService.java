@@ -125,13 +125,13 @@ public class AutoHdmiService extends Service {
         @Override
         public void run() {
             if (!waiting) return;
-            String top = topPackage();
-            if (Tv.TV_PKG.equals(top)) {
+            String top = topActivity();
+            if (isFullScreenTv(top)) {
                 waiting = false;
-                status = "TV-приложение уже на экране, ничего не делаю";
+                status = "полноэкранный TV-режим уже открыт, ничего не делаю";
                 return;
             }
-            if (STOCK_LAUNCHER.equals(top)) {
+            if (isLauncherScreen(top)) {
                 long now = SystemClock.uptimeMillis();
                 if (launcherSince == 0) launcherSince = now;
                 long need = delay(AutoHdmiService.this) * 1000L;
@@ -150,7 +150,7 @@ public class AutoHdmiService extends Service {
             launcherSince = 0;
             if (SystemClock.uptimeMillis() > deadline) {
                 waiting = false;
-                status = "штатный экран не продержался нужное время за 90 с (сверху: " + top + ")";
+                status = "штатный экран не продержался нужное время за 120 с (сверху: " + top + ")";
                 return;
             }
             handler.postDelayed(this, POLL_MS);
@@ -161,25 +161,42 @@ public class AutoHdmiService extends Service {
         @Override
         public void run() {
             // The user may have started something else in the meantime: only act over the launcher.
-            if (STOCK_LAUNCHER.equals(topPackage())) {
+            String top = topActivity();
+            if (isLauncherScreen(top)) {
                 if (Apps.startQuiet(AutoHdmiService.this, Tv.switchToHdmi(port(AutoHdmiService.this)))) {
                     status = "HDMI " + port(AutoHdmiService.this) + " открыт";
                 } else {
                     status = "не удалось открыть TV-приложение";
                 }
             } else {
-                status = "пропущено: на экране уже другое приложение";
+                status = "пропущено: на экране уже " + top;
             }
         }
     };
 
+    /** HDMI / TV picture is already full screen. */
+    private static boolean isFullScreenTv(String topActivity) {
+        return topActivity != null && topActivity.equals(Tv.TV_PKG + "/" + Tv.TV_ROOT);
+    }
+
+    /**
+     * The stock home screen, possibly with a TV-app popup over it (e.g. the source info banner
+     * the TV app shows over the launcher after power-on): treat both as "launcher on screen".
+     */
+    private static boolean isLauncherScreen(String topActivity) {
+        if (topActivity == null) return false;
+        if (topActivity.startsWith(STOCK_LAUNCHER + "/")) return true;
+        return topActivity.startsWith(Tv.TV_PKG + "/") && !isFullScreenTv(topActivity);
+    }
+
+    /** "package/full.class.Name" of the top activity, or "?". */
     @SuppressWarnings("deprecation")
-    private String topPackage() {
+    private String topActivity() {
         try {
             ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
             List<ActivityManager.RunningTaskInfo> t = am.getRunningTasks(1);
             if (t != null && !t.isEmpty() && t.get(0).topActivity != null) {
-                return t.get(0).topActivity.getPackageName();
+                return t.get(0).topActivity.getPackageName() + "/" + t.get(0).topActivity.getClassName();
             }
         } catch (Exception ignored) {
         }
