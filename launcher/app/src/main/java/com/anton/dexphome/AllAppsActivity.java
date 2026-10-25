@@ -76,6 +76,8 @@ public class AllAppsActivity extends Activity {
                         new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS),
                         new Intent(Settings.ACTION_APPLICATION_SETTINGS),
                         Apps.settingsFragment("com.android.settings.applications.ManageApplications")}},
+                {"Удаление приложений", new Intent[]{
+                        new Intent(this, UninstallActivity.class)}},
                 {"Диагностика", new Intent[]{
                         new Intent(this, SettingsListActivity.class)}},
         };

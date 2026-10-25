@@ -104,6 +104,17 @@ final class Apps {
         return false;
     }
 
+    /** Like start(), but silent on failure; returns whether the system accepted the intent. */
+    static boolean startQuiet(Context c, Intent i) {
+        try {
+            c.startActivity(new Intent(i).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return true;
+        } catch (ActivityNotFoundException ignored) {
+        } catch (SecurityException ignored) {
+        }
+        return false;
+    }
+
     static final String SETTINGS_PKG = "com.android.settings";
 
     static Intent settingsComponent(String cls) {
