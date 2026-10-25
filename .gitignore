@@ -1,0 +1,7 @@
+windows/output/
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+.idea/
+*.iml
