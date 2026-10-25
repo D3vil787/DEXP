@@ -162,6 +162,13 @@ public class MainActivity extends Activity {
                 Apps.start(MainActivity.this, Tv.openTvApp());
             }
         }));
+        pills.add(pill("Задержка HDMI: " + AutoHdmiService.delay(this) + " с", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int d = AutoHdmiService.nextDelay(MainActivity.this);
+                ((TextView) v).setText("Задержка HDMI: " + d + " с");
+            }
+        }));
         pills.add(pill("Все приложения", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -177,7 +184,7 @@ public class MainActivity extends Activity {
                         ? vendorSettings.intent : new Intent(Settings.ACTION_SETTINGS));
             }
         }));
-        int pillW = Ui.px(340), pillH = Ui.px(72), pillGap = Ui.px(30);
+        int pillW = Ui.px(330), pillH = Ui.px(72), pillGap = Ui.px(22);
         int px = (Ui.screenW - (pills.size() * pillW + (pills.size() - 1) * pillGap)) / 2;
         for (View p : pills) {
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(pillW, pillH);

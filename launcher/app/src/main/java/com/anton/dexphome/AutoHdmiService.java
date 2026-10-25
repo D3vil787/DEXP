@@ -22,12 +22,15 @@ public class AutoHdmiService extends Service {
     static final String PREFS = "home";
     static final String KEY_ENABLED = "auto_hdmi";
     static final String KEY_PORT = "hdmi_port";
+    static final String KEY_DELAY = "hdmi_delay_s";
+    static final int[] DELAYS = {5, 10, 15, 20, 30};
+    static final int DEFAULT_DELAY = 10;
     static final String ACTION_POWER_ON = "com.anton.dexphome.POWER_ON";
 
     private static final String STOCK_LAUNCHER = "com.konka.avenger";
-    private static final long WAIT_LIMIT_MS = 90000;
+    private static final long WAIT_LIMIT_MS = 120000;
     private static final long POLL_MS = 1000;
-    private static final long SETTLE_MS = 2500;
+
 
     /** Last action, shown on the diagnostics screen. */
     static volatile String status = "не запускался";
@@ -35,6 +38,8 @@ public class AutoHdmiService extends Service {
     private final Handler handler = new Handler();
     private long deadline;
     private boolean waiting;
+    /** When the stock launcher was first seen on top in this wait; 0 = not yet. */
+    private long launcherSince;
 
     private final BroadcastReceiver screenOn = new BroadcastReceiver() {
         @Override
@@ -49,6 +54,23 @@ public class AutoHdmiService extends Service {
 
     static int port(Context c) {
         return c.getSharedPreferences(PREFS, MODE_PRIVATE).getInt(KEY_PORT, 1);
+    }
+
+    /** Seconds the stock launcher must stay on screen before HDMI opens (it finishes audio setup meanwhile). */
+    static int delay(Context c) {
+        return c.getSharedPreferences(PREFS, MODE_PRIVATE).getInt(KEY_DELAY, DEFAULT_DELAY);
+    }
+
+    static int nextDelay(Context c) {
+        int cur = delay(c), next = DELAYS[0];
+        for (int i = 0; i < DELAYS.length; i++) {
+            if (DELAYS[i] == cur) {
+                next = DELAYS[(i + 1) % DELAYS.length];
+                break;
+            }
+        }
+        c.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt(KEY_DELAY, next).apply();
+        return next;
     }
 
     static void sync(Context c) {
@@ -94,6 +116,7 @@ public class AutoHdmiService extends Service {
         handler.removeCallbacksAndMessages(null);
         deadline = SystemClock.uptimeMillis() + WAIT_LIMIT_MS;
         waiting = true;
+        launcherSince = 0;
         status = why + ": жду штатный экран";
         handler.post(poll);
     }
@@ -109,14 +132,25 @@ public class AutoHdmiService extends Service {
                 return;
             }
             if (STOCK_LAUNCHER.equals(top)) {
-                waiting = false;
-                status = "штатный экран появился, открываю HDMI " + port(AutoHdmiService.this);
-                handler.postDelayed(open, SETTLE_MS);
+                long now = SystemClock.uptimeMillis();
+                if (launcherSince == 0) launcherSince = now;
+                long need = delay(AutoHdmiService.this) * 1000L;
+                if (now - launcherSince >= need) {
+                    waiting = false;
+                    status = "штатный экран простоял " + delay(AutoHdmiService.this) + " с, открываю HDMI "
+                            + port(AutoHdmiService.this);
+                    handler.post(open);
+                    return;
+                }
+                status = "штатный экран на месте, жду " + ((need - (now - launcherSince)) / 1000 + 1) + " с";
+                handler.postDelayed(this, POLL_MS);
                 return;
             }
+            // Something else is on top: restart the stock-launcher timer once it comes back.
+            launcherSince = 0;
             if (SystemClock.uptimeMillis() > deadline) {
                 waiting = false;
-                status = "штатный экран не появился за 90 с (сверху: " + top + ")";
+                status = "штатный экран не продержался нужное время за 90 с (сверху: " + top + ")";
                 return;
             }
             handler.postDelayed(this, POLL_MS);

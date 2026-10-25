@@ -57,7 +57,8 @@ public class SettingsListActivity extends Activity {
                 + "   adbd: " + prop("init.svc.adbd")
                 + "   порт: " + prop("service.adb.tcp.port") + " / " + prop("persist.adb.tcp.port"));
         info("Автозапуск HDMI: " + (AutoHdmiService.isEnabled(this) ? "вкл" : "выкл")
-                + ", порт HDMI " + AutoHdmiService.port(this) + " — " + AutoHdmiService.status);
+                + ", порт HDMI " + AutoHdmiService.port(this) + ", задержка " + AutoHdmiService.delay(this)
+                + " с — " + AutoHdmiService.status);
         info("ro.debuggable=" + prop("ro.debuggable") + "   ro.secure=" + prop("ro.secure")
                 + "   ro.adb.secure=" + prop("ro.adb.secure"));
 
