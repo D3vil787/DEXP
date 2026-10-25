@@ -38,15 +38,16 @@ public class MainActivity extends Activity {
     }
 
     // Kinopoisk is not listed: its Android app needs Android 7+, this TV has 4.2.
+    // Lampa is not listed: Android 4.2 lacks the Let's Encrypt root, so its sources fail.
     static final TileDef[] TILES = {
-            new TileDef("Lampa", "L", 0xFF2F86FF,
-                    new String[]{"top.rootu.lampa", "lampa.tv"},
-                    new String[]{"lampa"}),
             new TileDef("YouTube", "Y", 0xFFE01818,
                     new String[]{"com.teamsmart.videomanager.tv", "com.liskovsoft.smarttubetv.beta",
                             "com.liskovsoft.smarttubetv", "com.liskovsoft.videomanager"},
                     new String[]{"smarttube"}),
     };
+
+    private static final String PREFS = "home";
+    private static final String KEY_HDMI_PORT = "hdmi_port";
 
     private FrameLayout root;
     private TextView clock;
@@ -87,6 +88,7 @@ public class MainActivity extends Activity {
         }
         handler.removeCallbacks(tick);
         handler.post(tick);
+        Tv.toAndroidSourceAsync(this);
     }
 
     @Override
@@ -124,10 +126,12 @@ public class MainActivity extends Activity {
 
         // Big tiles.
         int tileW = Ui.px(420), tileH = Ui.px(280), gap = Ui.px(68);
-        int n = TILES.length;
+        List<View> tiles = new ArrayList<View>();
+        tiles.add(hdmiTile());
+        for (TileDef d : TILES) tiles.add(bigTile(d, Apps.find(apps, d.pkgs, d.keywords, false)));
+        int n = tiles.size();
         int x = (Ui.screenW - (n * tileW + (n - 1) * gap)) / 2;
-        for (TileDef d : TILES) {
-            View t = bigTile(d, Apps.find(apps, d.pkgs, d.keywords, false));
+        for (View t : tiles) {
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(tileW, tileH);
             lp.leftMargin = x;
             lp.topMargin = Ui.px(390);
@@ -138,11 +142,10 @@ public class MainActivity extends Activity {
 
         // Small bottom row: TV, all apps, settings.
         List<View> pills = new ArrayList<View>();
-        final Apps.Entry tv = Apps.find(apps, null, new String[]{"ТВ", "TV"}, true);
-        if (tv != null) pills.add(pill("ТВ", new View.OnClickListener() {
+        pills.add(pill("ТВ", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Apps.start(MainActivity.this, tv.intent);
+                Apps.start(MainActivity.this, Tv.openTvApp());
             }
         }));
         pills.add(pill("Все приложения", new View.OnClickListener() {
@@ -178,6 +181,56 @@ public class MainActivity extends Activity {
                 first.requestFocus();
             }
         });
+    }
+
+    private int hdmiPort() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE).getInt(KEY_HDMI_PORT, 1);
+    }
+
+    /** Switches the TV to HDMI like the remote's Source key. Long press OK changes the port. */
+    private View hdmiTile() {
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setGravity(Gravity.CENTER);
+        Ui.makeFocusable(t, 48, 1.07f);
+
+        int iconSize = Ui.px(120);
+        TextView g = new TextView(this);
+        g.setText("HDMI");
+        g.setGravity(Gravity.CENTER);
+        g.setTextColor(0xFFFFFFFF);
+        Ui.textSize(g, 32);
+        g.getPaint().setFakeBoldText(true);
+        g.setBackground(Ui.rounded(0xFF2F86FF, 30));
+        t.addView(g, new LinearLayout.LayoutParams(Ui.px(150), iconSize));
+
+        final TextView label = new TextView(this);
+        label.setText("Приставка · HDMI " + hdmiPort());
+        label.setTextColor(0xFFFFFFFF);
+        Ui.textSize(label, 32);
+        label.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        llp.topMargin = Ui.px(22);
+        t.addView(label, llp);
+
+        t.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Apps.start(MainActivity.this, Tv.switchToHdmi(hdmiPort()));
+            }
+        });
+        t.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                int next = hdmiPort() % 4 + 1;
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putInt(KEY_HDMI_PORT, next).apply();
+                label.setText("Приставка · HDMI " + next);
+                Toast.makeText(MainActivity.this, "Порт: HDMI " + next, Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        });
+        return t;
     }
 
     private View bigTile(final TileDef d, final Apps.Entry app) {

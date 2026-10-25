@@ -4,6 +4,10 @@
     <!-- Only for "Export APK to USB" (copying system app files for analysis). -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
+    <!-- Konka/MStar TV source control, same as the stock launcher declares. -->
+    <uses-permission android:name="com.mstar.permission.RW_TV_DATA" />
+    <uses-permission android:name="com.mstar.android.permissionn.ACCESS_TV_DATA" />
+
     <application
         android:label="Home"
         android:icon="@drawable/ic_launcher"

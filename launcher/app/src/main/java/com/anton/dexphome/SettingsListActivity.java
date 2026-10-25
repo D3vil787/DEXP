@@ -56,6 +56,7 @@ public class SettingsListActivity extends Activity {
         info("ADB включён: " + adbEnabled()
                 + "   adbd: " + prop("init.svc.adbd")
                 + "   порт: " + prop("service.adb.tcp.port") + " / " + prop("persist.adb.tcp.port"));
+        info("TV-сервис MStar: " + Tv.status);
         info("ro.debuggable=" + prop("ro.debuggable") + "   ro.secure=" + prop("ro.secure")
                 + "   ro.adb.secure=" + prop("ro.adb.secure"));
 
