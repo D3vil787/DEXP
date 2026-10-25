@@ -71,6 +71,7 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackground(Ui.background(this));
         setContentView(root);
+        AutoHdmiService.sync(this); // also covers the first launch after install / update
     }
 
     @Override
@@ -88,7 +89,6 @@ public class MainActivity extends Activity {
         }
         handler.removeCallbacks(tick);
         handler.post(tick);
-        Tv.toAndroidSourceAsync(this);
     }
 
     @Override
@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // This is the home screen: there is nothing to go back to.
+        finish(); // a helper app now, not the home screen
     }
 
     private void build() {
@@ -142,6 +142,20 @@ public class MainActivity extends Activity {
 
         // Small bottom row: TV, all apps, settings.
         List<View> pills = new ArrayList<View>();
+        final boolean auto = AutoHdmiService.isEnabled(this);
+        pills.add(pill(auto ? "Автозапуск HDMI: вкл" : "Автозапуск HDMI: выкл", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean on = !AutoHdmiService.isEnabled(MainActivity.this);
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                        .putBoolean(AutoHdmiService.KEY_ENABLED, on).apply();
+                AutoHdmiService.sync(MainActivity.this);
+                ((TextView) v).setText(on ? "Автозапуск HDMI: вкл" : "Автозапуск HDMI: выкл");
+                Toast.makeText(MainActivity.this, on
+                        ? "После включения телевизора HDMI " + hdmiPort() + " откроется сам"
+                        : "Автозапуск HDMI выключен", Toast.LENGTH_LONG).show();
+            }
+        }));
         pills.add(pill("ТВ", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -163,7 +177,7 @@ public class MainActivity extends Activity {
                         ? vendorSettings.intent : new Intent(Settings.ACTION_SETTINGS));
             }
         }));
-        int pillW = Ui.px(320), pillH = Ui.px(72), pillGap = Ui.px(30);
+        int pillW = Ui.px(340), pillH = Ui.px(72), pillGap = Ui.px(30);
         int px = (Ui.screenW - (pills.size() * pillW + (pills.size() - 1) * pillGap)) / 2;
         for (View p : pills) {
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(pillW, pillH);

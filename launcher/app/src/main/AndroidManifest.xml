@@ -5,11 +5,14 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <!-- Konka/MStar TV source control, same as the stock launcher declares. -->
+    <!-- Auto-HDMI helper: start after boot, see which app is on screen. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.GET_TASKS" />
     <uses-permission android:name="com.mstar.permission.RW_TV_DATA" />
     <uses-permission android:name="com.mstar.android.permissionn.ACCESS_TV_DATA" />
 
     <application
-        android:label="Home"
+        android:label="Помощник ТВ"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
@@ -26,8 +29,6 @@
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -63,5 +64,12 @@
             android:exported="false"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation" />
+        <service android:name=".AutoHdmiService" android:exported="false" />
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
